@@ -131,3 +131,29 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/product-api:${{ github.sha }}
+
+  deploy-local:
+    needs: build-and-push
+
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Check Docker
+        run: docker version
+
+      - name: Pull latest image from Docker Hub
+        run: docker compose -p product-api -f docker-compose-prod.yaml pull
+
+      - name: Deploy to Local Docker Engine
+        run: docker compose -p product-api -f docker-compose-prod.yaml up -d --force-recreate --wait --wait-timeout 60
+
+      - name: Check containers
+        run: docker compose -p product-api -f docker-compose-prod.yaml ps
