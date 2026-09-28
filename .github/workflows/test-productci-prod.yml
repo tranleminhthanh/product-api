@@ -1,0 +1,106 @@
+name: Product API Production CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-product-api:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+        options: >-
+          --health-cmd "mongosh --eval \"db.adminCommand('ping')\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # 1. Lấy source code từ GitHub
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # 2. Cài Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # 3. Cài dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Chạy Product API
+      - name: Start Product API
+        env:
+          PORT: 3000
+          MONGO_URI: mongodb://127.0.0.1:27017/productdb
+        run: |
+          node index.js > app.log 2>&1 &
+          echo $! > app.pid
+
+      # 5. Healthcheck Product API
+      - name: Healthcheck Product API
+        run: |
+          for i in {1..10}; do
+            if curl --fail http://localhost:3000; then
+              echo "Product API is healthy"
+              exit 0
+            fi
+
+            echo "Waiting for Product API..."
+            sleep 3
+          done
+
+          cat app.log
+          exit 1
+
+      # 6. CREATE - Thêm Product
+      - name: Test CREATE Product
+        run: |
+          curl --fail \
+            -X POST \
+            http://localhost:3000/api/products \
+            -H "Content-Type: application/json" \
+            -d '{
+              "pid": "P001",
+              "pname": "Laptop",
+              "price": 15000000,
+              "quantity": 10
+            }'
+
+      # 7. READ - Lấy Product
+      - name: Test READ Product
+        run: |
+          curl --fail \
+            http://localhost:3000/api/products/P001
+
+      # 8. UPDATE - Cập nhật Product
+      - name: Test UPDATE Product
+        run: |
+          curl --fail \
+            -X PUT \
+            http://localhost:3000/api/products/P001 \
+            -H "Content-Type: application/json" \
+            -d '{
+              "pname": "Gaming Laptop",
+              "price": 18000000,
+              "quantity": 5
+            }'
+
+      # 9. DELETE - Xóa Product
+      - name: Test DELETE Product
+        run: |
+          curl --fail \
+            -X DELETE \
+            http://localhost:3000/api/products/P001
