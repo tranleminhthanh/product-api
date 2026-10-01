@@ -20,10 +20,7 @@ const productSchema = new mongoose.Schema({
 
   quantity: {
     type: Number,
-    required: false,git status
-git add .
-git commit -m "Update source code"
-git push origin main
+    required: false,
   },
 });
 
