@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
+  # =========================
+  # JOB 1: CI - TEST API
+  # =========================
   test-product-api:
     runs-on: ubuntu-latest
 
@@ -20,27 +20,27 @@ jobs:
 
         options: >-
           --health-cmd "mongosh --eval \"db.adminCommand('ping')\""
-          --health-interval 10s
-          --health-timeout 5s
+          --health-interval 5s
+          --health-timeout 3s
           --health-retries 5
 
     steps:
-      # 1. Lấy source code từ GitHub
+      # Lấy source code
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2. Cài Node.js
+      # Cài Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
-      # 3. Cài dependencies
+      # Cài thư viện
       - name: Install dependencies
         run: npm ci
 
-      # 4. Chạy Product API
+      # Chạy Product API
       - name: Start Product API
         env:
           PORT: 3000
@@ -49,23 +49,23 @@ jobs:
           node index.js > app.log 2>&1 &
           echo $! > app.pid
 
-      # 5. Healthcheck Product API
+      # Healthcheck API
       - name: Healthcheck Product API
         run: |
-          for i in {1..10}; do
+          for i in {1..6}; do
             if curl --fail http://localhost:3000; then
               echo "Product API is healthy"
               exit 0
             fi
 
             echo "Waiting for Product API..."
-            sleep 3
+            sleep 2
           done
 
           cat app.log
           exit 1
 
-      # 6. CREATE - Thêm Product
+      # CREATE
       - name: Test CREATE Product
         run: |
           curl --fail \
@@ -79,13 +79,13 @@ jobs:
               "quantity": 10
             }'
 
-      # 7. READ - Lấy Product
+      # READ
       - name: Test READ Product
         run: |
           curl --fail \
             http://localhost:3000/api/products/P001
 
-      # 8. UPDATE - Cập nhật Product
+      # UPDATE
       - name: Test UPDATE Product
         run: |
           curl --fail \
@@ -98,17 +98,19 @@ jobs:
               "quantity": 5
             }'
 
-      # 9. DELETE - Xóa Product
+      # DELETE
       - name: Test DELETE Product
         run: |
           curl --fail \
             -X DELETE \
             http://localhost:3000/api/products/P001
+
+  # =========================
+  # JOB 2: BUILD + PUSH DOCKER HUB
+  # =========================
   build-and-push:
     needs: test-product-api
     runs-on: ubuntu-latest
-
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout source code
@@ -128,10 +130,11 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/product-api:${{ github.sha }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
 
+  # =========================
+  # JOB 3: DEPLOY VỀ LOCAL
+  # =========================
   deploy-local:
     needs: build-and-push
 
@@ -140,20 +143,18 @@ jobs:
       - Windows
       - X64
 
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Check Docker
-        run: docker version
+      # Chỉ pull Product API, không pull MongoDB
+      - name: Pull Product API image
+        run: docker compose -p product-api -f docker-compose-prod.yaml pull product-api
 
-      - name: Pull latest image from Docker Hub
-        run: docker compose -p product-api -f docker-compose-prod.yaml pull
+      # Chỉ cập nhật Product API, không restart MongoDB
+      - name: Deploy Product API
+        run: docker compose -p product-api -f docker-compose-prod.yaml up -d --no-deps product-api
 
-      - name: Deploy to Local Docker Engine
-        run: docker compose -p product-api -f docker-compose-prod.yaml up -d --force-recreate --wait --wait-timeout 60
-
+      # Kiểm tra container
       - name: Check containers
         run: docker compose -p product-api -f docker-compose-prod.yaml ps
