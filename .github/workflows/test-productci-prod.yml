@@ -25,22 +25,18 @@ jobs:
           --health-retries 5
 
     steps:
-      # Lấy source code
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Cài Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
-      # Cài thư viện
       - name: Install dependencies
         run: npm ci
 
-      # Chạy Product API
       - name: Start Product API
         env:
           PORT: 3000
@@ -49,7 +45,6 @@ jobs:
           node index.js > app.log 2>&1 &
           echo $! > app.pid
 
-      # Healthcheck API
       - name: Healthcheck Product API
         run: |
           for i in {1..6}; do
@@ -65,7 +60,6 @@ jobs:
           cat app.log
           exit 1
 
-      # CREATE
       - name: Test CREATE Product
         run: |
           curl --fail \
@@ -79,13 +73,11 @@ jobs:
               "quantity": 10
             }'
 
-      # READ
       - name: Test READ Product
         run: |
           curl --fail \
             http://localhost:3000/api/products/P001
 
-      # UPDATE
       - name: Test UPDATE Product
         run: |
           curl --fail \
@@ -98,7 +90,6 @@ jobs:
               "quantity": 5
             }'
 
-      # DELETE
       - name: Test DELETE Product
         run: |
           curl --fail \
@@ -131,6 +122,8 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   # =========================
   # JOB 3: DEPLOY VỀ LOCAL
@@ -147,14 +140,11 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Chỉ pull Product API, không pull MongoDB
       - name: Pull Product API image
         run: docker compose -p product-api -f docker-compose-prod.yaml pull product-api
 
-      # Chỉ cập nhật Product API, không restart MongoDB
       - name: Deploy Product API
         run: docker compose -p product-api -f docker-compose-prod.yaml up -d --no-deps product-api
 
-      # Kiểm tra container
       - name: Check containers
         run: docker compose -p product-api -f docker-compose-prod.yaml ps
