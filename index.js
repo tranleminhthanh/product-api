@@ -24,6 +24,19 @@ app.get("/", (req, res) => {
   res.send("Product API is running");
 });
 
+// Route health check
+app.get("/health", (req, res) => {
+  if (mongoose.connection.readyState === 1) {
+    res.status(200).json({
+      status: "healthy",
+    });
+  } else {
+    res.status(503).json({
+      status: "unhealthy",
+    });
+  }
+});
+
 // Gắn Product Routes
 const productRoutes = require("./routes/productRoutes");
 
