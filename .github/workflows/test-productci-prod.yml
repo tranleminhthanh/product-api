@@ -6,15 +6,16 @@ on:
       - main
 
 jobs:
-  # =========================
-  # JOB 1: CI - TEST API
-  # =========================
+  # ==================================================
+  # JOB 1: CI - TEST PRODUCT API
+  # ==================================================
   test-product-api:
     runs-on: ubuntu-latest
 
     services:
       mongodb:
         image: mongo:7
+
         ports:
           - 27017:27017
 
@@ -25,29 +26,36 @@ jobs:
           --health-retries 5
 
     steps:
+      # Lấy source code từ GitHub
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # Cài Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
+      # Cài dependencies
       - name: Install dependencies
         run: npm ci
 
+      # Chạy Product API
       - name: Start Product API
         env:
           PORT: 3000
           MONGO_URI: mongodb://127.0.0.1:27017/productdb
+
         run: |
           node index.js > app.log 2>&1 &
           echo $! > app.pid
 
+      # Kiểm tra API đã chạy chưa
       - name: Healthcheck Product API
         run: |
           for i in {1..6}; do
+
             if curl --fail http://localhost:3000; then
               echo "Product API is healthy"
               exit 0
@@ -55,11 +63,15 @@ jobs:
 
             echo "Waiting for Product API..."
             sleep 2
+
           done
 
           cat app.log
           exit 1
 
+      # ==================================================
+      # TEST CREATE
+      # ==================================================
       - name: Test CREATE Product
         run: |
           curl --fail \
@@ -73,11 +85,17 @@ jobs:
               "quantity": 10
             }'
 
+      # ==================================================
+      # TEST READ
+      # ==================================================
       - name: Test READ Product
         run: |
           curl --fail \
             http://localhost:3000/api/products/P001
 
+      # ==================================================
+      # TEST UPDATE
+      # ==================================================
       - name: Test UPDATE Product
         run: |
           curl --fail \
@@ -90,44 +108,58 @@ jobs:
               "quantity": 5
             }'
 
+      # ==================================================
+      # TEST DELETE
+      # ==================================================
       - name: Test DELETE Product
         run: |
           curl --fail \
             -X DELETE \
             http://localhost:3000/api/products/P001
 
-  # =========================
-  # JOB 2: BUILD + PUSH DOCKER HUB
-  # =========================
+  # ==================================================
+  # JOB 2: BUILD + PUSH IMAGE LÊN DOCKER HUB
+  # ==================================================
   build-and-push:
     needs: test-product-api
+
     runs-on: ubuntu-latest
 
     steps:
+      # Lấy source code
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      # Đăng nhập Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
+
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Chuẩn bị Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Build và Push image
+      # Có cache để những lần sau build nhanh hơn
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
+
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
+
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
+
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # =========================
-  # JOB 3: DEPLOY VỀ LOCAL
-  # =========================
+  # ==================================================
+  # JOB 3: CD - DEPLOY VỀ LAPTOP
+  # ==================================================
   deploy-local:
     needs: build-and-push
 
@@ -137,14 +169,15 @@ jobs:
       - X64
 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
+      # Pull trực tiếp image mới nhất từ Docker Hub
+      - name: Pull latest Product API image
+        run: docker pull tranleminhthanh/product-api:latest
 
-      - name: Pull Product API image
-        run: docker compose -p product-api -f docker-compose-prod.yaml pull product-api
-
+      # Chỉ cập nhật Product API
+      # Không restart MongoDB
       - name: Deploy Product API
-        run: docker compose -p product-api -f docker-compose-prod.yaml up -d --no-deps product-api
+        run: docker compose -p product-api -f "C:\Users\ADMIN\Desktop\LTHDV\product-api\docker-compose-prod.yaml" up -d --no-deps product-api
 
+      # Kiểm tra container sau khi deploy
       - name: Check containers
-        run: docker compose -p product-api -f docker-compose-prod.yaml ps
+        run: docker compose -p product-api -f "C:\Users\ADMIN\Desktop\LTHDV\product-api\docker-compose-prod.yaml" ps
