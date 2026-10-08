@@ -18,6 +18,7 @@ services:
 
   product-api:
     build: .
+    image: product-api:latest
     container_name: product-api
 
     ports:
