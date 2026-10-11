@@ -121,8 +121,6 @@ jobs:
   # JOB 2: BUILD + PUSH IMAGE LÊN DOCKER HUB
   # ==================================================
   build-and-push:
-    needs: test-product-api
-
     runs-on: ubuntu-latest
 
     steps:
@@ -161,7 +159,7 @@ jobs:
   # JOB 3: CD - DEPLOY VỀ LAPTOP
   # ==================================================
   deploy-local:
-    needs: build-and-push
+    needs: [test-product-api, build-and-push]
 
     runs-on:
       - self-hosted
