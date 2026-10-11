@@ -5,3 +5,6 @@ test("Kiem tra API lay san pham", async () => {
   const res = await fetch("http://localhost:3000/api/products");
   assert.equal(res.status, 200);
 });
+test("kiem tra ci/cd", () => {
+  assert.equal(1 + 1, 2);
+});
