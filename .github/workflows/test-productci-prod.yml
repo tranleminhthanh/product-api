@@ -71,7 +71,7 @@ jobs:
             -d '{
               "pid": "P001",
               "pname": "Laptop",
-              "price": 15000000,
+              "price": 1000000,
               "quantity": 12
             }'
 
