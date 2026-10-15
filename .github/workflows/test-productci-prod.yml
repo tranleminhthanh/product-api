@@ -44,15 +44,14 @@ jobs:
           node index.js > app.log 2>&1 &
           echo $! > app.pid
 
-      - name: Healthcheck Product API
+        - name: Healthcheck Product API
         run: |
-          for i in {1..12}; do
-            if curl --fail --silent http://localhost:3000/health; then
+          for i in {1..24}; do
+            if curl --fail --silent --max-time 2 http://localhost:3000/health; then
               echo "Product API is healthy"
               exit 0
             fi
-            echo "Waiting for Product API..."
-            sleep 2
+            sleep 1
           done
           cat app.log
           exit 1
@@ -128,7 +127,7 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/product-api:latest
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
 
   # ==========================================
   # JOB 3: CD - DEPLOY VE LAPTOP
