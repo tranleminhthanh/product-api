@@ -68,7 +68,7 @@ jobs:
             http://localhost:3000/api/products \
             -H "Content-Type: application/json" \
             -d '{
-              "pid": "P002",
+              "pid": "P001",
               "pname": "Laptop",
               "price": 1000000,
               "quantity": 12
