@@ -89,7 +89,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "pname": "Gaming Laptop",
-              "price": 180000,
+              "price": 20000,
               "quantity": 5
             }'
 
