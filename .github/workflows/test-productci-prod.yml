@@ -44,7 +44,7 @@ jobs:
           node index.js > app.log 2>&1 &
           echo $! > app.pid
 
-        - name: Healthcheck Product API
+      - name: Healthcheck Product API
         run: |
           for i in {1..24}; do
             if curl --fail --silent --max-time 2 http://localhost:3000/health; then
